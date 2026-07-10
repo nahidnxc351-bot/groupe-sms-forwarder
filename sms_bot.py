@@ -37,15 +37,15 @@ processed_sms_ids = load_processed_ids()
 
 def extract_otp(message):
     """মেসেজ থেকে ৪-৮ ডিজিট অথবা ৪-৮ অক্ষরের ইংরেজি টেক্সট OTP খুঁজে বের করার লজিক"""
-    # প্রথমে মেসেজের একদম শেষের শব্দটি চেক করবে (যেমন স্ক্রিনশটের mfvhn)
+    # প্রথমে মেসেজের একদম শেষের শব্দটি চেক করবে
     words = message.strip().split()
     if words:
         last_word = words[-1]
-        # শেষের শব্দটি যদি ৪ থেকে ৮ অক্ষরের হয়, তবে সেটাকেই ওটিপি হিসেবে নিবে
+        # শেষের শব্দটি যদি ৪ থেকে ৮ অক্ষরের হয়, তবে সেটাকেই ওটিপি হিসেবে নিবে
         if 4 <= len(last_word) <= 8:
             return last_word
             
-    # যদি শেষের শব্দে না পায়, তবে পুরো মেসেজে ৪-৮ অক্ষরের যেকোনো কোড (সংখ্যা বা অক্ষর) খুঁজবে
+    # যদি শেষের শব্দে না পায়, তবে পুরো মেসেজে ৪-৮ অক্ষরের যেকোনো কোড (সংখ্যা বা অক্ষর) খুঁজবে
     otp_match = re.search(r'\b[a-zA-Z0-9]{4,8}\b', message)
     return otp_match.group(0) if otp_match else "No OTP"
 
@@ -61,7 +61,8 @@ def format_number(num):
 def fetch_and_forward():
     global processed_sms_ids
     try:
-        response = requests.get(f"{API_URL}?token={PANEL_TOKEN}", timeout=10)
+        # এপিআই লিংকের শেষে &records=10 যোগ করা হয়েছে যেন প্যানেল থেকে ডাটা ঠিকমতো আসে
+        response = requests.get(f"{API_URL}?token={PANEL_TOKEN}&records=10", timeout=10)
         if response.status_code == 200:
             full_data = response.json()
             if full_data.get('status') == 'success':
@@ -98,6 +99,7 @@ def fetch_and_forward():
                                 bot.send_message(CHAT_ID, text, parse_mode='HTML', reply_markup=markup)
                                 processed_sms_ids.add(msg_unique_id)
                                 save_processed_ids(processed_sms_ids)
+                                print(f"Successfully forwarded OTP for {masked_number}")
                             except Exception as send_error:
                                 print(f"Sending Error: {send_error}")
                                             
@@ -105,7 +107,7 @@ def fetch_and_forward():
         print(f"Fetch Error: {e}")
 
 if __name__ == "__main__":
-    print("বটটি টেক্সট এবং ডিজিট উভয় প্রকার ওটিপি সাপোর্ট সহ চালু হচ্ছে...")
+    print("বটটি টেক্সট এবং ডিজিট উভয় প্রকার ওটিপি সাপোর্ট সহ चालू হচ্ছে...")
     while True:
         fetch_and_forward()
         time.sleep(4)
