@@ -37,19 +37,16 @@ processed_sms_ids = load_processed_ids()
 
 def extract_otp(message):
     """মেসেজ থেকে ওটিপি কোড খুঁজে বের করার লজিক"""
-    # প্রথমে মেসেজে 'is ' বা 'code ' বা ':' এর পর কোনো ৪-৮ ডিজিটের সংখ্যা আছে কিনা দেখবে
     match = re.search(r'(?:is|code|:|💬)\s*([a-zA-Z0-9]{4,8})\b', message, re.IGNORECASE)
     if match:
         return match.group(1)
         
-    # যদি না পায়, তবে শেষের শব্দটি চেক করবে
     words = message.strip().split()
     if words:
         last_word = words[-1].strip('.,!:-')
         if 4 <= len(last_word) <= 8:
             return last_word
             
-    # অন্যথায় পুরো টেক্সট থেকে ৪-৮ অক্ষরের যেকোনো কোড নিবে
     otp_match = re.search(r'\b[a-zA-Z0-9]{4,8}\b', message)
     return otp_match.group(0) if otp_match else "No OTP"
 
@@ -65,7 +62,6 @@ def format_number(num):
 def fetch_and_forward():
     global processed_sms_ids
     try:
-        # records=10 দিয়ে প্যানেলের শেষ ১০টি এসএমএস রিড করা হচ্ছে
         response = requests.get(f"{API_URL}?token={PANEL_TOKEN}&records=10", timeout=10)
         if response.status_code == 200:
             full_data = response.json()
@@ -82,10 +78,13 @@ def fetch_and_forward():
                             msg_content = sms.get('message', 'No message')
                             otp = extract_otp(msg_content)
                             
-                            service_name = str(sms.get('service', 'Omnisend')).strip()
+                            # এখানে প্যানেল থেকে আসা ডাইনামিক সার্ভিস নেম ('service' অথবা 'cli') চেক করা হচ্ছে
+                            service_name = sms.get('service') or sms.get('cli') or 'Unknown'
+                            service_name = str(service_name).strip()
+                            
                             masked_number = format_number(num)
                             
-                            # নতুন লেআউট ডিজাইন (এখানে কমিশন টোটাল বাদ দেওয়া হয়েছে ভাই)
+                            # ফাইনাল লেআউট (কমিশন ছাড়া এবং ডাইনামিক সার্ভিস সহ)
                             text = (
                                 f"🎯 <b>SMS RECEIVED IN YOUR NUMBER!</b>\n\n"
                                 f"👤 <b>Number:</b> <code>{masked_number}</code>\n"
@@ -94,7 +93,6 @@ def fetch_and_forward():
                                 f"🔑 <b>Code:</b> <code>{otp}</code>"
                             )
 
-                            # ওনার বাটন (ক্লিক করলে আপনার আইডিতে চলে যাবে)
                             markup = InlineKeyboardMarkup()
                             markup.row(
                                 InlineKeyboardButton("👤 Owner", url="https://t.me/nb269")
@@ -105,7 +103,7 @@ def fetch_and_forward():
                                 processed_sms_ids.add(msg_unique_id)
                                 save_processed_ids(processed_sms_ids)
                                 print(f"Successfully forwarded OTP for {masked_number}")
-                                time.sleep(1) # স্প্যাম প্রোটেকশন
+                                time.sleep(1)
                             except Exception as send_error:
                                 print(f"Sending Error: {send_error}")
                                             
@@ -113,7 +111,7 @@ def fetch_and_forward():
         print(f"Fetch Error: {e}")
 
 if __name__ == "__main__":
-    print("বটটি নতুন ওটিপি ফরম্যাট ও কমিশন রিমুভ সহ চালু হচ্ছে...")
+    print("বটটি ডাইনামিক সার্ভিস নেম সাপোর্ট সহ চালু হচ্ছে...")
     while True:
         fetch_and_forward()
         time.sleep(4)
